@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Social Content Manager</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #14141f;
+    --panel:     #1c1c2b;
+    --panel-2:   #232338;
+    --field:     #14141f;
+    --line:      #32324a;
+    --text:      #e8e8f0;
+    --muted:     #8f8fa8;
+    --accent:    #b45cf0;
+    --accent-2:  #f0568c;
+    --ok:        #3fbf7f;
+    --warn:      #e0a33e;
+    --danger:    #e05c5c;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    min-height: 100vh;
+  }
+
+  /* ---------- header ---------- */
+  header {
+    background: var(--panel);
+    border-bottom: 1px solid var(--line);
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; margin-right: auto; }
+  .dot {
+    width: 26px; height: 26px; border-radius: 8px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    flex-shrink: 0;
+  }
+  h1 { font-size: 16px; font-weight: 600; letter-spacing: .2px; }
+  .sub { font-size: 11px; color: var(--muted); }
+
+  .stats { display: flex; gap: 14px; font-size: 11px; color: var(--muted); }
+  .stats b { display: block; font-size: 16px; color: var(--text); font-weight: 600; }
+
+  button {
+    font: inherit;
+    color: var(--text);
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    padding: 7px 13px;
+    cursor: pointer;
+  }
+  button:hover { background: #2c2c46; }
+  button.primary {
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    border-color: transparent;
+    font-weight: 600;
+  }
+  button.primary:hover { filter: brightness(1.1); }
+  button.ghost { background: none; }
+  button.ghost:hover { background: var(--panel-2); }
+  button.tiny { padding: 4px 9px; font-size: 12px; }
+
+  /* ---------- toolbar ---------- */
+  .toolbar {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+    padding: 14px 20px 0;
+  }
+  .toolbar input[type="search"] { min-width: 220px; flex: 1; max-width: 340px; }
+
+  input, select, textarea {
+    font: inherit;
+    color: var(--text);
+    background: var(--field);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    padding: 7px 9px;
+    width: 100%;
+  }
+  input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  textarea { resize: vertical; line-height: 1.45; }
+  .toolbar input, .toolbar select { width: auto; }
+
+  /* ---------- board ---------- */
+  .board {
+    padding: 16px 20px 40px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+    gap: 16px;
+    align-items: start;
+  }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .card-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    background: var(--panel-2);
+    border-bottom: 1px solid var(--line);
+    border-left: 4px solid var(--muted);
+  }
+  .card[data-status="scheduled"] .card-top { border-left-color: var(--accent); }
+  .card[data-status="review"]    .card-top { border-left-color: var(--warn); }
+  .card[data-status="posted"]    .card-top { border-left-color: var(--ok); }
+
+  .card-top .title {
+    flex: 1;
+    background: none;
+    border: none;
+    padding: 2px 0;
+    font-weight: 600;
+    font-size: 14px;
+  }
+  .card-top .title::placeholder { color: var(--muted); font-weight: 400; }
+  .card-top .title:focus { border-bottom: 1px solid var(--accent); border-radius: 0; }
+
+  .card-body { padding: 12px; display: flex; flex-direction: column; gap: 11px; }
+
+  .field > label,
+  .row > .field > label {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
+    font-size: 11px;
+    letter-spacing: .3px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .row { display: flex; gap: 10px; }
+  .row > * { flex: 1; min-width: 0; }
+
+  .count { font-size: 10px; color: var(--muted); text-transform: none; letter-spacing: 0; }
+  .count.over { color: var(--danger); }
+
+  .hint { font-size: 11px; color: var(--muted); margin-top: 4px; }
+  .hint.late { color: var(--warn); }
+
+  details.more { border-top: 1px dashed var(--line); padding-top: 10px; }
+  details.more > summary {
+    cursor: pointer;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .3px;
+    color: var(--muted);
+    list-style: none;
+  }
+  details.more > summary::-webkit-details-marker { display: none; }
+  details.more > summary::before { content: "▸ "; }
+  details.more[open] > summary::before { content: "▾ "; }
+  details.more > summary:hover { color: var(--text); }
+  details.more > div { display: flex; flex-direction: column; gap: 11px; margin-top: 11px; }
+
+  .card-foot {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    padding: 9px 12px;
+    border-top: 1px solid var(--line);
+    background: var(--panel-2);
+  }
+  .card-foot .spacer { margin-left: auto; }
+  .card-foot button.del:hover { background: var(--danger); border-color: var(--danger); }
+
+  .empty {
+    grid-column: 1 / -1;
+    text-align: center;
+    color: var(--muted);
+    padding: 70px 20px;
+    border: 1px dashed var(--line);
+    border-radius: 12px;
+  }
+  .empty p { margin-bottom: 14px; }
+
+  .toast {
+    position: fixed;
+    bottom: 22px;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 9px 16px;
+    font-size: 13px;
+    opacity: 0;
+    transition: transform .2s, opacity .2s;
+    pointer-events: none;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+  @media (max-width: 560px) {
+    .stats { display: none; }
+    .row { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="dot"></div>
+    <div>
+      <h1>Social Content Manager</h1>
+      <div class="sub">Instagram post planning &middot; saved in this browser</div>
+    </div>
+  </div>
+
+  <div class="stats" id="stats"></div>
+
+  <button class="ghost" id="btn-import">Import</button>
+  <button class="ghost" id="btn-export">Export JSON</button>
+  <button class="primary" id="btn-new">+ New post</button>
+  <input type="file" id="file-input" accept="application/json" hidden>
+</header>
+
+<div class="toolbar">
+  <input type="search" id="search" placeholder="Search title, caption, hashtags…">
+  <select id="filter-status">
+    <option value="">All statuses</option>
+    <option value="draft">Draft</option>
+    <option value="review">Needs review</option>
+    <option value="scheduled">Scheduled</option>
+    <option value="posted">Posted</option>
+  </select>
+  <select id="filter-category">
+    <option value="">All categories</option>
+  </select>
+  <select id="sort">
+    <option value="date">Sort: scheduled date</option>
+    <option value="created">Sort: newest added</option>
+    <option value="title">Sort: title</option>
+  </select>
+</div>
+
+<div class="board" id="board"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  var STORE = "social-content-manager/v1";
+
+  var CATEGORIES = ["Product", "Educational", "Behind the scenes", "Promotion",
+    "Testimonial", "User generated", "Announcement", "Community", "Entertainment"];
+  var FORMATS = ["Feed image", "Carousel", "Reel", "Story"];
+  var STATUSES = [["draft", "Draft"], ["review", "Needs review"],
+    ["scheduled", "Scheduled"], ["posted", "Posted"]];
+  var RATIOS = ["1:1 square", "4:5 portrait", "9:16 vertical", "16:9 landscape"];
+  var STYLES = ["Photorealistic", "Studio product shot", "Lifestyle candid",
+    "Flat lay", "3D render", "Illustration", "Minimal graphic", "Retro film"];
+
+  var CAPTION_MAX = 2200, ALT_MAX = 100, HASHTAG_MAX = 30;
+
+  var posts = load();
+  var view = { search: "", status: "", category: "", sort: "date" };
+
+  var board = document.getElementById("board");
+  var toastEl = document.getElementById("toast");
+
+  /* ---------------- storage ---------------- */
+
+  function load() {
+    try {
+      var raw = localStorage.getItem(STORE);
+      if (raw) return JSON.parse(raw);
+    } catch (e) { /* corrupt or unavailable — start fresh */ }
+    return [sample()];
+  }
+
+  function save() {
+    try {
+      localStorage.setItem(STORE, JSON.stringify(posts));
+    } catch (e) {
+      toast("Could not save — browser storage is unavailable");
+    }
+  }
+
+  function blank() {
+    return {
+      id: "p" + Date.now() + Math.random().toString(36).slice(2, 6),
+      created: Date.now(),
+      title: "", status: "draft", category: CATEGORIES[0], format: FORMATS[0],
+      visual: "", ratio: RATIOS[1], style: STYLES[0],
+      caption: "", hashtags: "", date: "", time: "",
+      account: "", location: "", tagged: "", cta: "",
+      firstComment: "", alt: "", audio: "", owner: "", notes: ""
+    };
+  }
+
+  function sample() {
+    var p = blank();
+    p.title = "Spring launch teaser";
+    p.status = "scheduled";
+    p.category = "Product";
+    p.visual = "A pale ceramic mug on a linen tablecloth beside a sprig of eucalyptus, " +
+      "soft morning window light from the left, shallow depth of field, warm neutral palette.";
+    p.caption = "Something new is steeping. ☕️ Launching Thursday — tap the link in bio " +
+      "to join the early list.";
+    p.hashtags = "#slowmornings #ceramics #newlaunch #handmade";
+    p.cta = "Link in bio";
+    p.alt = "A pale ceramic mug on a linen tablecloth next to a eucalyptus sprig.";
+    var d = new Date(Date.now() + 3 * 86400000);
+    p.date = d.toISOString().slice(0, 10);
+    p.time = "09:00";
+    return p;
+  }
+
+  /* ---------------- helpers ---------------- */
+
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  function byId(id) {
+    for (var i = 0; i < posts.length; i++) if (posts[i].id === id) return posts[i];
+    return null;
+  }
+
+  function countHashtags(s) {
+    var m = String(s || "").match(/#[^\s#]+/g);
+    return m ? m.length : 0;
+  }
+
+  function options(list, selected) {
+    return list.map(function (o) {
+      var value = Array.isArray(o) ? o[0] : o;
+      var label = Array.isArray(o) ? o[1] : o;
+      return '<option value="' + esc(value) + '"' +
+        (value === selected ? " selected" : "") + ">" + esc(label) + "</option>";
+    }).join("");
+  }
+
+  function scheduleHint(p) {
+    if (!p.date) return { text: "Not scheduled yet", late: false };
+    var when = new Date(p.date + "T" + (p.time || "00:00"));
+    if (isNaN(when)) return { text: "", late: false };
+    var days = Math.round((when - Date.now()) / 86400000);
+    var pretty = when.toLocaleDateString(undefined,
+      { weekday: "short", month: "short", day: "numeric" }) +
+      (p.time ? " at " + p.time : "");
+    if (when < Date.now()) {
+      return {
+        text: pretty + " — in the past",
+        late: p.status !== "posted"
+      };
+    }
+    return { text: pretty + (days <= 14 ? " — in " + (days || "<1") + " day" +
+      (days === 1 ? "" : "s") : ""), late: false };
+  }
+
+  var toastTimer;
+  function toast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toastEl.classList.remove("show"); }, 2200);
+  }
+
+  /* ---------------- rendering ---------------- */
+
+  function visible() {
+    var q = view.search.toLowerCase();
+    var list = posts.filter(function (p) {
+      if (view.status && p.status !== view.status) return false;
+      if (view.category && p.category !== view.category) return false;
+      if (!q) return true;
+      return [p.title, p.caption, p.hashtags, p.visual, p.notes, p.category]
+        .join(" ").toLowerCase().indexOf(q) !== -1;
+    });
+
+    list.sort(function (a, b) {
+      if (view.sort === "title") return (a.title || "").localeCompare(b.title || "");
+      if (view.sort === "created") return b.created - a.created;
+      var ka = a.date ? a.date + "T" + (a.time || "00:00") : "9999";
+      var kb = b.date ? b.date + "T" + (b.time || "00:00") : "9999";
+      return ka < kb ? -1 : ka > kb ? 1 : 0;
+    });
+    return list;
+  }
+
+  function cardHTML(p) {
+    var hint = scheduleHint(p);
+    var capLeft = CAPTION_MAX - (p.caption || "").length;
+    var altLeft = ALT_MAX - (p.alt || "").length;
+    var tags = countHashtags(p.hashtags);
+    var isVideo = p.format === "Reel" || p.format === "Story";
+
+    return '' +
+    '<div class="card" data-id="' + p.id + '" data-status="' + esc(p.status) + '">' +
+
+      '<div class="card-top">' +
+        '<input class="title" data-field="title" value="' + esc(p.title) + '" placeholder="Untitled post">' +
+      '</div>' +
+
+      '<div class="card-body">' +
+
+        '<div class="row">' +
+          '<div class="field"><label>Status</label>' +
+            '<select data-field="status">' + options(STATUSES, p.status) + '</select></div>' +
+          '<div class="field"><label>Format</label>' +
+            '<select data-field="format">' + options(FORMATS, p.format) + '</select></div>' +
+        '</div>' +
+
+        '<div class="field"><label>Category</label>' +
+          '<select data-field="category">' + options(CATEGORIES, p.category) + '</select></div>' +
+
+        '<div class="field">' +
+          '<label>Visual description <span class="count">for image generation</span></label>' +
+          '<textarea data-field="visual" rows="4" placeholder="Subject, setting, lighting, mood, palette, camera angle…">' +
+            esc(p.visual) + '</textarea>' +
+          '<div class="row" style="margin-top:8px">' +
+            '<div class="field"><label>Aspect ratio</label>' +
+              '<select data-field="ratio">' + options(RATIOS, p.ratio) + '</select></div>' +
+            '<div class="field"><label>Style</label>' +
+              '<select data-field="style">' + options(STYLES, p.style) + '</select></div>' +
+          '</div>' +
+          '<button class="tiny ghost" data-act="copy-prompt" style="margin-top:8px">Copy image prompt</button>' +
+        '</div>' +
+
+        '<div class="field">' +
+          '<label>Caption <span class="count' + (capLeft < 0 ? " over" : "") +
+            '" data-count="caption">' + capLeft + ' left</span></label>' +
+          '<textarea data-field="caption" rows="5" placeholder="Write the post copy…">' +
+            esc(p.caption) + '</textarea>' +
+        '</div>' +
+
+        '<div class="field">' +
+          '<label>Hashtags <span class="count' + (tags > HASHTAG_MAX ? " over" : "") +
+            '" data-count="hashtags">' + tags + '/' + HASHTAG_MAX + '</span></label>' +
+          '<textarea data-field="hashtags" rows="2" placeholder="#brand #category #location">' +
+            esc(p.hashtags) + '</textarea>' +
+        '</div>' +
+
+        '<div class="row">' +
+          '<div class="field"><label>Date</label>' +
+            '<input type="date" data-field="date" value="' + esc(p.date) + '"></div>' +
+          '<div class="field"><label>Time</label>' +
+            '<input type="time" data-field="time" value="' + esc(p.time) + '"></div>' +
+        '</div>' +
+        '<div class="hint' + (hint.late ? " late" : "") + '" data-hint>' + esc(hint.text) + '</div>' +
+
+        '<details class="more"><summary>More details</summary><div>' +
+
+          '<div class="row">' +
+            '<div class="field"><label>Account</label>' +
+              '<input data-field="account" value="' + esc(p.account) + '" placeholder="@handle"></div>' +
+            '<div class="field"><label>Owner</label>' +
+              '<input data-field="owner" value="' + esc(p.owner) + '" placeholder="Who is making it"></div>' +
+          '</div>' +
+
+          '<div class="row">' +
+            '<div class="field"><label>Location tag</label>' +
+              '<input data-field="location" value="' + esc(p.location) + '" placeholder="Leuven, Belgium"></div>' +
+            '<div class="field"><label>Tagged / collab</label>' +
+              '<input data-field="tagged" value="' + esc(p.tagged) + '" placeholder="@partner"></div>' +
+          '</div>' +
+
+          '<div class="field"><label>Call to action / link</label>' +
+            '<input data-field="cta" value="' + esc(p.cta) + '" placeholder="Link in bio, DM us, Shop now…"></div>' +
+
+          (isVideo ? '<div class="field"><label>Audio / music</label>' +
+            '<input data-field="audio" value="' + esc(p.audio) + '" placeholder="Trending track or original audio"></div>' : '') +
+
+          '<div class="field"><label>First comment</label>' +
+            '<textarea data-field="firstComment" rows="2" placeholder="Extra hashtags, credits, links…">' +
+              esc(p.firstComment) + '</textarea></div>' +
+
+          '<div class="field">' +
+            '<label>Alt text <span class="count' + (altLeft < 0 ? " over" : "") +
+              '" data-count="alt">' + altLeft + ' left</span></label>' +
+            '<textarea data-field="alt" rows="2" placeholder="Describe the image for screen readers">' +
+              esc(p.alt) + '</textarea></div>' +
+
+          '<div class="field"><label>Notes</label>' +
+            '<textarea data-field="notes" rows="2" placeholder="Approvals, revisions, reminders…">' +
+              esc(p.notes) + '</textarea></div>' +
+
+        '</div></details>' +
+      '</div>' +
+
+      '<div class="card-foot">' +
+        '<button class="tiny ghost" data-act="copy-caption">Copy caption</button>' +
+        '<button class="tiny ghost" data-act="duplicate">Duplicate</button>' +
+        '<button class="tiny ghost del spacer" data-act="delete">Delete</button>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function render() {
+    var list = visible();
+    board.innerHTML = list.length
+      ? list.map(cardHTML).join("")
+      : '<div class="empty"><p>' +
+        (posts.length ? "No posts match these filters." : "No posts yet.") +
+        '</p><button class="primary" data-act="new">+ New post</button></div>';
+    renderStats();
+    renderCategoryFilter();
+  }
+
+  function renderStats() {
+    var c = { draft: 0, review: 0, scheduled: 0, posted: 0 };
+    posts.forEach(function (p) { if (c[p.status] != null) c[p.status]++; });
+    document.getElementById("stats").innerHTML =
+      '<div><b>' + posts.length + '</b>total</div>' +
+      '<div><b>' + c.draft + '</b>draft</div>' +
+      '<div><b>' + c.review + '</b>review</div>' +
+      '<div><b>' + c.scheduled + '</b>scheduled</div>' +
+      '<div><b>' + c.posted + '</b>posted</div>';
+  }
+
+  function renderCategoryFilter() {
+    var sel = document.getElementById("filter-category");
+    var seen = CATEGORIES.slice();
+    posts.forEach(function (p) {
+      if (p.category && seen.indexOf(p.category) === -1) seen.push(p.category);
+    });
+    sel.innerHTML = '<option value="">All categories</option>' + options(seen, view.category);
+    sel.value = view.category;
+  }
+
+  /* ---------------- editing ---------------- */
+
+  function cardOf(el) { return el.closest(".card"); }
+
+  board.addEventListener("input", function (e) {
+    var el = e.target, field = el.dataset.field;
+    if (!field) return;
+    var card = cardOf(el), p = byId(card.dataset.id);
+    if (!p) return;
+
+    p[field] = el.value;
+    save();
+
+    if (field === "caption") {
+      var capLeft = CAPTION_MAX - el.value.length;
+      updateCount(card, "caption", capLeft + " left", capLeft < 0);
+    }
+    if (field === "alt") {
+      var altLeft = ALT_MAX - el.value.length;
+      updateCount(card, "alt", altLeft + " left", altLeft < 0);
+    }
+    if (field === "hashtags") {
+      var n = countHashtags(el.value);
+      updateCount(card, "hashtags", n + "/" + HASHTAG_MAX, n > HASHTAG_MAX);
+    }
+    if (field === "date" || field === "time") updateHint(card, p);
+  });
+
+  board.addEventListener("change", function (e) {
+    var el = e.target, field = el.dataset.field;
+    if (!field) return;
+    var card = cardOf(el), p = byId(card.dataset.id);
+    if (!p) return;
+
+    p[field] = el.value;
+    save();
+
+    if (field === "status") {
+      card.dataset.status = p.status;
+      renderStats();
+      updateHint(card, p);
+      if (view.status) render();
+    }
+    if (field === "category") {
+      renderCategoryFilter();
+      if (view.category) render();
+    }
+    // Reels and stories get an audio field; feed posts don't.
+    if (field === "format") render();
+  });
+
+  function updateCount(card, name, text, over) {
+    var el = card.querySelector('[data-count="' + name + '"]');
+    if (!el) return;
+    el.textContent = text;
+    el.classList.toggle("over", !!over);
+  }
+
+  function updateHint(card, p) {
+    var h = scheduleHint(p), el = card.querySelector("[data-hint]");
+    if (!el) return;
+    el.textContent = h.text;
+    el.classList.toggle("late", h.late);
+  }
+
+  /* ---------------- actions ---------------- */
+
+  function addPost() {
+    var p = blank();
+    posts.unshift(p);
+
+    // Drop any filter that would hide the post the user just asked for.
+    view.search = "";
+    document.getElementById("search").value = "";
+    if (view.status && view.status !== p.status) {
+      view.status = "";
+      document.getElementById("filter-status").value = "";
+    }
+    if (view.category && view.category !== p.category) {
+      view.category = "";
+      document.getElementById("filter-category").value = "";
+    }
+    save();
+    render();
+    // An unscheduled post sorts to the end of the board, so find it by id
+    // rather than assuming it is the first card.
+    var title = board.querySelector('.card[data-id="' + p.id + '"] .title');
+    if (title) {
+      title.focus();
+      title.scrollIntoView({ block: "nearest" });
+    }
+  }
+
+  function imagePrompt(p) {
+    var parts = [];
+    if (p.visual) parts.push(p.visual.trim().replace(/\s+/g, " "));
+    if (p.style) parts.push(p.style.toLowerCase());
+    if (p.ratio) parts.push(p.ratio.split(" ")[0] + " aspect ratio");
+    parts.push("high detail, no text or logos");
+    return parts.join(", ");
+  }
+
+  function copy(text, label) {
+    if (!text) { toast("Nothing to copy"); return; }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text)
+        .then(function () { toast(label + " copied"); })
+        .catch(function () { fallbackCopy(text, label); });
+    } else {
+      fallbackCopy(text, label);
+    }
+  }
+
+  function fallbackCopy(text, label) {
+    var ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    try {
+      document.execCommand("copy");
+      toast(label + " copied");
+    } catch (e) {
+      toast("Copy failed — select the text manually");
+    }
+    document.body.removeChild(ta);
+  }
+
+  board.addEventListener("click", function (e) {
+    var btn = e.target.closest("[data-act]");
+    if (!btn) return;
+    var act = btn.dataset.act;
+
+    if (act === "new") { addPost(); return; }
+
+    var card = cardOf(btn), p = byId(card.dataset.id);
+    if (!p) return;
+
+    if (act === "copy-prompt") copy(imagePrompt(p), "Image prompt");
+
+    if (act === "copy-caption") {
+      copy([p.caption, p.hashtags].filter(Boolean).join("\n\n"), "Caption");
+    }
+
+    if (act === "duplicate") {
+      var clone = JSON.parse(JSON.stringify(p));
+      clone.id = blank().id;
+      clone.created = Date.now();
+      clone.title = (p.title || "Untitled post") + " (copy)";
+      clone.status = "draft";
+      posts.splice(posts.indexOf(p) + 1, 0, clone);
+      save();
+      render();
+    }
+
+    if (act === "delete") {
+      if (!confirm("Delete “" + (p.title || "Untitled post") + "”?")) return;
+      posts.splice(posts.indexOf(p), 1);
+      save();
+      render();
+    }
+  });
+
+  /* ---------------- toolbar & header ---------------- */
+
+  document.getElementById("btn-new").addEventListener("click", addPost);
+
+  document.getElementById("search").addEventListener("input", function (e) {
+    view.search = e.target.value;
+    render();
+  });
+
+  document.getElementById("filter-status").addEventListener("change", function (e) {
+    view.status = e.target.value;
+    render();
+  });
+
+  document.getElementById("filter-category").addEventListener("change", function (e) {
+    view.category = e.target.value;
+    render();
+  });
+
+  document.getElementById("sort").addEventListener("change", function (e) {
+    view.sort = e.target.value;
+    render();
+  });
+
+  document.getElementById("btn-export").addEventListener("click", function () {
+    var blob = new Blob([JSON.stringify(posts, null, 2)], { type: "application/json" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "content-plan-" + new Date().toISOString().slice(0, 10) + ".json";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+
+  var fileInput = document.getElementById("file-input");
+  document.getElementById("btn-import").addEventListener("click", function () {
+    fileInput.click();
+  });
+
+  fileInput.addEventListener("change", function () {
+    var file = fileInput.files && fileInput.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function () {
+      var data;
+      try {
+        data = JSON.parse(reader.result);
+      } catch (err) {
+        toast("That file is not valid JSON");
+        return;
+      }
+      if (!Array.isArray(data)) { toast("Expected a list of posts"); return; }
+      // Merge onto the defaults so older or partial exports still open cleanly.
+      var imported = data.map(function (raw) {
+        var p = blank();
+        Object.keys(p).forEach(function (k) {
+          if (raw[k] != null) p[k] = raw[k];
+        });
+        p.id = blank().id;
+        return p;
+      });
+      posts = imported.concat(posts);
+      save();
+      render();
+      toast("Imported " + imported.length + " post" + (imported.length === 1 ? "" : "s"));
+    };
+    reader.readAsText(file);
+    fileInput.value = "";
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
